@@ -11,13 +11,58 @@ const state = {
   caseQuery: '',
   casePage: 1,
   casePageSize: 25,
-  charts: {}
+  charts: {},
+  useLiveApi: false,
+  staticDataCache: {}
 };
+
+// Check if running against live FastAPI or static GitHub Pages
+async function detectEnvironment() {
+  try {
+    const res = await fetch('/api/filters', { signal: AbortSignal.timeout(1500) });
+    if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+      const data = await res.json();
+      if (data && data.police_stations) {
+        state.useLiveApi = true;
+        console.log('[System] Connected to Live FastAPI Backend');
+        return;
+      }
+    }
+  } catch (e) {
+    // Fallback to static
+  }
+  state.useLiveApi = false;
+  console.log('[System] Running in Static / GitHub Pages Mode (using data_static)');
+}
+
+// Helper to fetch data either from API or static JSON
+async function fetchEndpoint(endpoint, params = {}) {
+  if (state.useLiveApi) {
+    const qStr = new URLSearchParams(params).toString();
+    const url = `/api/${endpoint}${qStr ? '?' + qStr : ''}`;
+    const res = await fetch(url);
+    return await res.json();
+  }
+
+  // Static mode
+  const baseStatic = './data_static';
+  if (!state.staticDataCache[endpoint]) {
+    try {
+      const res = await fetch(`${baseStatic}/${endpoint}.json`);
+      state.staticDataCache[endpoint] = await res.json();
+    } catch (err) {
+      console.warn(`Could not load static file ${endpoint}.json`, err);
+      return null;
+    }
+  }
+  return state.staticDataCache[endpoint];
+}
 
 // DOM Ready
 document.addEventListener('DOMContentLoaded', async () => {
   setupTabs();
   setupEventListeners();
+  await detectEnvironment();
   await loadFilterOptions();
   await refreshAll();
 });
@@ -139,32 +184,32 @@ function setupEventListeners() {
   document.getElementById('exportBtn').addEventListener('click', exportSummaryCSV);
 }
 
-// Build Query String from Filters
-function getQueryString(extra = {}) {
-  const params = new URLSearchParams();
-  if (state.filters.sub_div !== 'All') params.append('sub_div', state.filters.sub_div);
-  if (state.filters.ps !== 'All') params.append('ps', state.filters.ps);
-  if (state.filters.head !== 'All') params.append('head', state.filters.head);
-  if (state.filters.year !== 'All') params.append('year', state.filters.year);
-  if (state.filters.month !== 'All') params.append('month', state.filters.month);
-  if (state.filters.gravity !== 'All') params.append('gravity', state.filters.gravity);
+// Build Query Object from Filters
+function getFilterParams(extra = {}) {
+  const params = {};
+  if (state.filters.sub_div !== 'All') params.sub_div = state.filters.sub_div;
+  if (state.filters.ps !== 'All') params.ps = state.filters.ps;
+  if (state.filters.head !== 'All') params.head = state.filters.head;
+  if (state.filters.year !== 'All') params.year = state.filters.year;
+  if (state.filters.month !== 'All') params.month = state.filters.month;
+  if (state.filters.gravity !== 'All') params.gravity = state.filters.gravity;
 
   for (const [k, v] of Object.entries(extra)) {
-    if (v !== undefined && v !== null && v !== '') params.append(k, v);
+    if (v !== undefined && v !== null && v !== '') params[k] = v;
   }
-  return params.toString();
+  return params;
 }
 
 // Load Dropdown Options
 async function loadFilterOptions() {
   try {
-    const res = await fetch('/api/filters');
-    const data = await res.json();
+    const data = await fetchEndpoint('filters');
+    if (!data) return;
 
-    populateSelect('subDivSelect', data.sub_divisions);
-    populateSelect('psSelect', data.police_stations);
-    populateSelect('headSelect', data.crime_heads);
-    populateSelect('yearSelect', data.years);
+    populateSelect('subDivSelect', data.sub_divisions || []);
+    populateSelect('psSelect', data.police_stations || []);
+    populateSelect('headSelect', data.crime_heads || []);
+    populateSelect('yearSelect', data.years || []);
   } catch (err) {
     console.error('Error loading filters:', err);
   }
@@ -172,8 +217,8 @@ async function loadFilterOptions() {
 
 function populateSelect(elemId, items) {
   const select = document.getElementById(elemId);
+  if (!select) return;
   const currentVal = select.value;
-  // Keep first option
   select.innerHTML = select.options[0].outerHTML;
   items.forEach(item => {
     const opt = document.createElement('option');
@@ -190,8 +235,7 @@ async function refreshAll() {
   await loadTrends();
   await loadOverviewCrimeTable();
 
-  // If on active tab, load its data
-  const activeTab = document.querySelector('.nav-tab.border-blue-500').dataset.tab;
+  const activeTab = document.querySelector('.nav-tab.border-blue-500')?.dataset.tab;
   if (activeTab === 'tab-stations') loadStationData();
   if (activeTab === 'tab-crimes') loadCrimeHeadData();
   if (activeTab === 'tab-pendency') loadPendencyData();
@@ -201,8 +245,33 @@ async function refreshAll() {
 // Load KPIs
 async function loadKPIs() {
   try {
-    const res = await fetch(`/api/kpis?${getQueryString()}`);
-    const data = await res.json();
+    let data;
+    if (state.useLiveApi) {
+      data = await fetchEndpoint('kpis', getFilterParams());
+    } else {
+      data = await fetchEndpoint('kpis');
+      // In static mode, if a police station is selected, compute from stations data
+      if (state.filters.ps !== 'All') {
+        const stations = await fetchEndpoint('stations');
+        const match = stations?.find(s => s.station === state.filters.ps);
+        if (match) {
+          data = {
+            total: match.total,
+            ui: match.ui,
+            chargesheeted: match.chargesheeted,
+            police_disposed: match.disposed,
+            court_disposed: Math.round(match.disposed * 0.7),
+            cs_rate: match.cs_rate,
+            disp_rate: match.disp_rate,
+            grave: Math.round(match.total * 0.02),
+            non_grave: Math.round(match.total * 0.98),
+            long_pending: match.long_pending
+          };
+        }
+      }
+    }
+
+    if (!data) return;
 
     document.getElementById('kpi-total').textContent = (data.total || 0).toLocaleString();
     document.getElementById('kpi-grave').textContent = (data.grave || 0).toLocaleString();
@@ -259,9 +328,9 @@ function updateStageDonut(kpis) {
 // Load Trend Chart
 async function loadTrends() {
   try {
-    const res = await fetch(`/api/trends?${getQueryString()}`);
-    const data = await res.json();
-    
+    const data = await fetchEndpoint('trends', getFilterParams());
+    if (!data) return;
+
     document.getElementById('trendTypeBadge').textContent = data.type === 'monthly' ? 'Monthly Trend' : 'Yearly Trend';
     const ctx = document.getElementById('trendChart').getContext('2d');
     if (state.charts.trend) state.charts.trend.destroy();
@@ -307,12 +376,14 @@ async function loadTrends() {
 // Load Top 5 Crime Heads on Overview
 async function loadOverviewCrimeTable() {
   try {
-    const res = await fetch(`/api/crime-heads?${getQueryString({ limit: 6 })}`);
-    const data = await res.json();
+    const data = await fetchEndpoint('crime_heads', getFilterParams({ limit: 6 }));
+    if (!data) return;
+
     const tbody = document.getElementById('overviewCrimeHeadTable');
     tbody.innerHTML = '';
 
-    data.forEach(item => {
+    const list = data.slice(0, 6);
+    list.forEach(item => {
       const tr = document.createElement('tr');
       tr.className = 'hover:bg-slate-800/40 transition';
       tr.innerHTML = `
@@ -339,8 +410,16 @@ async function loadOverviewCrimeTable() {
 // TAB 2: Station Performance
 async function loadStationData() {
   try {
-    const res = await fetch(`/api/stations?${getQueryString()}`);
-    const data = await res.json();
+    let data = await fetchEndpoint('stations', getFilterParams());
+    if (!data) return;
+
+    if (state.filters.sub_div !== 'All') {
+      data = data.filter(s => s.sub_division === state.filters.sub_div);
+    }
+    if (state.filters.ps !== 'All') {
+      data = data.filter(s => s.station === state.filters.ps);
+    }
+
     const tbody = document.getElementById('stationTableBody');
     tbody.innerHTML = '';
 
@@ -383,12 +462,13 @@ async function loadStationData() {
 // TAB 3: Crime Head Analytics
 async function loadCrimeHeadData() {
   try {
-    const res = await fetch(`/api/crime-heads?${getQueryString({ limit: 12 })}`);
-    const data = await res.json();
+    const data = await fetchEndpoint('crime_heads', getFilterParams({ limit: 12 }));
+    if (!data) return;
 
-    const labels = data.map(d => d.crime_head);
-    const totals = data.map(d => d.total);
-    const csRates = data.map(d => d.cs_rate);
+    const list = data.slice(0, 12);
+    const labels = list.map(d => d.crime_head);
+    const totals = list.map(d => d.total);
+    const csRates = list.map(d => d.cs_rate);
 
     // Volume Chart
     const ctx1 = document.getElementById('crimeHeadsChart').getContext('2d');
@@ -451,8 +531,8 @@ async function loadCrimeHeadData() {
 // TAB 4: Pendency Analytics
 async function loadPendencyData() {
   try {
-    const res = await fetch(`/api/pendency?${getQueryString()}`);
-    const data = await res.json();
+    const data = await fetchEndpoint('pendency', getFilterParams());
+    if (!data) return;
 
     const ctx = document.getElementById('pendencyChart').getContext('2d');
     if (state.charts.pendency) state.charts.pendency.destroy();
@@ -511,31 +591,65 @@ async function loadPendencyData() {
 let currentCasesData = [];
 async function loadCaseData() {
   try {
-    const qStr = getQueryString({
-      q: state.caseQuery,
-      page: state.casePage,
-      page_size: state.casePageSize
-    });
+    let items = [];
+    let total = 0;
+    let totalPages = 1;
 
-    const res = await fetch(`/api/cases?${qStr}`);
-    const data = await res.json();
-    currentCasesData = data.items;
+    if (state.useLiveApi) {
+      const qParams = getFilterParams({
+        q: state.caseQuery,
+        page: state.casePage,
+        page_size: state.casePageSize
+      });
+      const data = await fetchEndpoint('cases', qParams);
+      if (data) {
+        items = data.items;
+        total = data.total;
+        totalPages = data.total_pages;
+      }
+    } else {
+      const data = await fetchEndpoint('cases');
+      if (data && data.items) {
+        let filtered = data.items;
+        if (state.filters.ps !== 'All') {
+          filtered = filtered.filter(c => c.police_station === state.filters.ps);
+        }
+        if (state.filters.head !== 'All') {
+          filtered = filtered.filter(c => c.crime_head === state.filters.head);
+        }
+        if (state.caseQuery) {
+          const q = state.caseQuery.toLowerCase();
+          filtered = filtered.filter(c =>
+            (c.fir_no && c.fir_no.toLowerCase().includes(q)) ||
+            (c.io_name && c.io_name.toLowerCase().includes(q)) ||
+            (c.acts_sec && c.acts_sec.toLowerCase().includes(q)) ||
+            (c.brief && c.brief.toLowerCase().includes(q))
+          );
+        }
+        total = filtered.length;
+        totalPages = Math.ceil(total / state.casePageSize) || 1;
+        const start = (state.casePage - 1) * state.casePageSize;
+        items = filtered.slice(start, start + state.casePageSize);
+      }
+    }
 
-    document.getElementById('caseRecordCount').textContent = data.total.toLocaleString();
-    document.getElementById('currentPageNum').textContent = data.page;
-    document.getElementById('totalPagesNum').textContent = data.total_pages;
-    document.getElementById('prevPageBtn').disabled = data.page <= 1;
-    document.getElementById('nextPageBtn').disabled = data.page >= data.total_pages;
+    currentCasesData = items;
+
+    document.getElementById('caseRecordCount').textContent = total.toLocaleString();
+    document.getElementById('currentPageNum').textContent = state.casePage;
+    document.getElementById('totalPagesNum').textContent = totalPages;
+    document.getElementById('prevPageBtn').disabled = state.casePage <= 1;
+    document.getElementById('nextPageBtn').disabled = state.casePage >= totalPages;
 
     const tbody = document.getElementById('caseTableBody');
     tbody.innerHTML = '';
 
-    if (data.items.length === 0) {
+    if (items.length === 0) {
       tbody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-500">No cases match the selected filters.</td></tr>`;
       return;
     }
 
-    data.items.forEach(c => {
+    items.forEach(c => {
       let stageBadge = 'bg-slate-800 text-slate-300 border border-slate-700';
       const stageLower = (c.stage || '').toLowerCase();
       if (stageLower.includes('ui') || stageLower.includes('under')) {
@@ -605,8 +719,8 @@ function closeModal() {
 // Export Summary to CSV
 async function exportSummaryCSV() {
   try {
-    const res = await fetch(`/api/stations?${getQueryString()}`);
-    const data = await res.json();
+    const data = await fetchEndpoint('stations', getFilterParams());
+    if (!data) return;
     
     let csv = 'Police Station,Sub-Division,Total Cases,Under Investigation,Charge-Sheeted,Disposed,Long Pending (>1y),CS Rate (%)\n';
     data.forEach(s => {

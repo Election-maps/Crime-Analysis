@@ -460,6 +460,14 @@
     District Police Crime Analysis Portal &bull; Built with FastAPI, SQLite & Open Data Standards
   </footer>
 
-  <script src="/static/app.js"></script>
+  <script src="./frontend/app.js"></script>
+  <script>
+    // Fallback if app.js is in same directory
+    if (typeof state === 'undefined') {
+      const s = document.createElement('script');
+      s.src = './app.js';
+      document.body.appendChild(s);
+    }
+  </script>
 </body>
 </html>

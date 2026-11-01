@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Police Crime Analysis & Review System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-40 backdrop-blur-md px-6 py-3.5 shadow-lg">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center space-x-3.5">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-blue-700 via-indigo-600 to-sky-400 flex items-center justify-center shadow-lg shadow-blue-500/20 text-white font-bold text-xl ring-2 ring-blue-500/30">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold tracking-tight text-white">CRIME REVIEW & INVESTIGATION PORTAL</h1>
+            <span class="bg-blue-500/10 text-blue-400 border border-blue-500/30 text-xs px-2.5 py-0.5 rounded-full font-semibold uppercase tracking-wider">Live System</span>
+          </div>
+          <p class="text-xs text-slate-400">District Police Crime Review, Charge-Sheet Tracking & Pendency Analytics</p>
+        </div>
+      </div>
+
+      <!-- Quick Action Buttons -->
+      <div class="flex items-center gap-2.5">
+        <button id="refreshBtn" class="px-3.5 py-2 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700/80 flex items-center gap-2 transition duration-150 shadow-sm">
+          <i class="fa-solid fa-arrows-rotate"></i> Refresh
+        </button>
+        <button id="exportBtn" class="px-3.5 py-2 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg flex items-center gap-2 transition duration-150 shadow-sm shadow-emerald-600/30">
+          <i class="fa-solid fa-file-excel"></i> Export Summary
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Filter Ribbon Bar -->
+  <section class="bg-slate-900 border-b border-slate-800/80 px-6 py-3 shadow-inner">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center gap-3 text-xs">
+      <span class="text-slate-400 font-semibold uppercase tracking-wider flex items-center gap-1.5 mr-1">
+        <i class="fa-solid fa-filter text-blue-400"></i> Filters:
+      </span>
+
+      <!-- Sub-Division -->
+      <div class="flex items-center gap-1.5">
+        <label class="text-slate-400">Sub-Div:</label>
+        <select id="subDivSelect" class="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <option value="All">All Sub-Divisions</option>
+        </select>
+      </div>
+
+      <!-- Police Station -->
+      <div class="flex items-center gap-1.5">
+        <label class="text-slate-400">Police Station:</label>
+        <select id="psSelect" class="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none max-w-xs">
+          <option value="All">All Police Stations</option>
+        </select>
+      </div>
+
+      <!-- Crime Head -->
+      <div class="flex items-center gap-1.5">
+        <label class="text-slate-400">Crime Head:</label>
+        <select id="headSelect" class="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none max-w-xs">
+          <option value="All">All Crime Heads</option>
+        </select>
+      </div>
+
+      <!-- Year -->
+      <div class="flex items-center gap-1.5">
+        <label class="text-slate-400">Year:</label>
+        <select id="yearSelect" class="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <option value="All">All Years</option>
+        </select>
+      </div>
+
+      <!-- Month -->
+      <div class="flex items-center gap-1.5">
+        <label class="text-slate-400">Month:</label>
+        <select id="monthSelect" class="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <option value="All">All Months</option>
+        </select>
+      </div>
+
+      <!-- Gravity -->
+      <div class="flex items-center gap-1.5">
+        <label class="text-slate-400">Gravity:</label>
+        <select id="gravitySelect" class="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          <option value="All">All Gravity</option>
+          <option value="Grave">Grave Crimes</option>
+          <option value="Non-Grave">Non-Grave</option>
+        </select>
+      </div>
+
+      <button id="resetFiltersBtn" class="ml-auto text-slate-400 hover:text-rose-400 font-medium px-2 py-1 transition flex items-center gap-1">
+        <i class="fa-solid fa-xmark"></i> Clear Filters
+      </button>
+    </div>
+  </section>
+
+  <!-- Main Navigation Tabs -->
+  <div class="bg-slate-900/60 border-b border-slate-800 px-6">
+    <div class="max-w-7xl mx-auto flex space-x-1 sm:space-x-4">
+      <button class="nav-tab active-tab px-4 py-3 text-sm font-semibold border-b-2 border-blue-500 text-blue-400 flex items-center gap-2" data-tab="tab-overview">
+        <i class="fa-solid fa-chart-pie"></i> Executive Overview
+      </button>
+      <button class="nav-tab px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2" data-tab="tab-stations">
+        <i class="fa-solid fa-building-shield"></i> Station Performance
+      </button>
+      <button class="nav-tab px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2" data-tab="tab-crimes">
+        <i class="fa-solid fa-scale-balanced"></i> Crime Head Analytics
+      </button>
+      <button class="nav-tab px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2" data-tab="tab-pendency">
+        <i class="fa-solid fa-hourglass-half"></i> Pendency & UI Aging
+      </button>
+      <button class="nav-tab px-4 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2" data-tab="tab-explorer">
+        <i class="fa-solid fa-magnifying-glass"></i> Live Case Explorer
+      </button>
+    </div>
+  </div>
+
+  <!-- Content Container -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-6 py-6">
+
+    <!-- TAB 1: EXECUTIVE OVERVIEW -->
+    <div id="tab-overview" class="tab-pane space-y-6">
+      <!-- KPI Stats Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <!-- Total Reported -->
+        <div class="bg-slate-900 border border-slate-800/90 rounded-xl p-4 shadow-sm relative overflow-hidden">
+          <div class="absolute right-3 top-3 text-blue-500/10 text-5xl font-black"><i class="fa-solid fa-folder-open"></i></div>
+          <p class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Reported</p>
+          <h2 id="kpi-total" class="text-3xl font-extrabold text-white mt-1">--</h2>
+          <p class="text-[11px] text-slate-500 mt-2 flex items-center gap-1">
+            <span id="kpi-grave" class="text-rose-400 font-medium">--</span> Grave | <span id="kpi-non-grave" class="text-slate-400 font-medium">--</span> Non-Grave
+          </p>
+        </div>
+
+        <!-- UI Pending -->
+        <div class="bg-slate-900 border border-amber-500/30 rounded-xl p-4 shadow-sm relative overflow-hidden bg-gradient-to-b from-amber-500/5 to-transparent">
+          <div class="absolute right-3 top-3 text-amber-500/10 text-5xl font-black"><i class="fa-solid fa-hourglass-half"></i></div>
+          <p class="text-xs font-semibold text-amber-400 uppercase tracking-wider">Under Investigation</p>
+          <h2 id="kpi-ui" class="text-3xl font-extrabold text-amber-300 mt-1">--</h2>
+          <p class="text-[11px] text-amber-500/80 mt-2 flex items-center gap-1">
+            <i class="fa-solid fa-clock"></i> <span id="kpi-long-pending" class="font-semibold text-amber-300">--</span> Long Pending (>1 yr)
+          </p>
+        </div>
+
+        <!-- Charge-Sheeted -->
+        <div class="bg-slate-900 border border-emerald-500/30 rounded-xl p-4 shadow-sm relative overflow-hidden bg-gradient-to-b from-emerald-500/5 to-transparent">
+          <div class="absolute right-3 top-3 text-emerald-500/10 text-5xl font-black"><i class="fa-solid fa-file-signature"></i></div>
+          <p class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Charge-Sheeted (CS)</p>
+          <h2 id="kpi-cs" class="text-3xl font-extrabold text-emerald-300 mt-1">--</h2>
+          <p class="text-[11px] text-emerald-500/80 mt-2 flex items-center gap-1">
+            CS Rate: <span id="kpi-cs-rate" class="font-bold text-emerald-300">--%</span>
+          </p>
+        </div>
+
+        <!-- Police Disposed -->
+        <div class="bg-slate-900 border border-indigo-500/30 rounded-xl p-4 shadow-sm relative overflow-hidden bg-gradient-to-b from-indigo-500/5 to-transparent">
+          <div class="absolute right-3 top-3 text-indigo-500/10 text-5xl font-black"><i class="fa-solid fa-stamp"></i></div>
+          <p class="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Police Disposed</p>
+          <h2 id="kpi-p-disp" class="text-3xl font-extrabold text-indigo-300 mt-1">--</h2>
+          <p class="text-[11px] text-indigo-400/80 mt-2">
+            Mistake of Fact / False / Un-undetected
+          </p>
+        </div>
+
+        <!-- Court Disposed & Rate -->
+        <div class="bg-slate-900 border border-sky-500/30 rounded-xl p-4 shadow-sm relative overflow-hidden bg-gradient-to-b from-sky-500/5 to-transparent">
+          <div class="absolute right-3 top-3 text-sky-500/10 text-5xl font-black"><i class="fa-solid fa-gavel"></i></div>
+          <p class="text-xs font-semibold text-sky-400 uppercase tracking-wider">Overall Disposal Rate</p>
+          <h2 id="kpi-disp-rate" class="text-3xl font-extrabold text-sky-300 mt-1">--%</h2>
+          <p class="text-[11px] text-sky-400/80 mt-2">
+            Court Disposed: <span id="kpi-c-disp" class="font-bold text-sky-200">--</span> cases
+          </p>
+        </div>
+      </div>
+
+      <!-- Charts Row 1 -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Monthly / Annual Crime Trend Chart -->
+        <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-blue-400"></i> Crime Trend & Investigation Trajectory
+              </h3>
+              <p class="text-xs text-slate-400">Reported Cases vs Charge-Sheeted vs UI backlogs</p>
+            </div>
+            <span id="trendTypeBadge" class="text-xs bg-slate-800 text-slate-300 px-2 py-1 rounded border border-slate-700">Monthly</span>
+          </div>
+          <div class="h-72">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Case Stage Breakdown Donut -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-chart-pie text-emerald-400"></i> Case Status Distribution
+            </h3>
+          </div>
+          <div class="h-60 relative flex items-center justify-center">
+            <canvas id="stageDonutChart"></canvas>
+          </div>
+          <div class="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-400 border-t border-slate-800/80 pt-3">
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Under Investigation</div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Charge-Sheeted</div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> Police Disposed</div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span> Court Disposed</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Summary Table: Top 5 High-Volume Crime Heads -->
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-3 flex items-center gap-2">
+          <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Top Crime Categories At A Glance
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-xs text-left text-slate-300">
+            <thead class="bg-slate-800/60 text-slate-400 uppercase font-semibold border-b border-slate-700/60">
+              <tr>
+                <th class="py-2.5 px-3">Crime Head</th>
+                <th class="py-2.5 px-3 text-right">Reported Cases</th>
+                <th class="py-2.5 px-3 text-right">UI Pending</th>
+                <th class="py-2.5 px-3 text-right">Charge-Sheeted</th>
+                <th class="py-2.5 px-3 text-right">CS Rate (%)</th>
+                <th class="py-2.5 px-3">Resolution Progress</th>
+              </tr>
+            </thead>
+            <tbody id="overviewCrimeHeadTable" class="divide-y divide-slate-800">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: POLICE STATION PERFORMANCE -->
+    <div id="tab-stations" class="tab-pane hidden space-y-6">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-ranking-star text-amber-400"></i> Police Station Performance & League Table
+            </h3>
+            <p class="text-xs text-slate-400">Real-time tracking across all 37 Police Stations</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="stationSearchInput" placeholder="Filter police station..." class="bg-slate-800 border border-slate-700 text-xs px-3 py-1.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-200">
+          </div>
+        </div>
+
+        <div class="overflow-x-auto custom-scrollbar max-h-[600px]">
+          <table class="w-full text-xs text-left text-slate-300">
+            <thead class="bg-slate-800 text-slate-400 uppercase font-semibold sticky top-0 border-b border-slate-700 z-10">
+              <tr>
+                <th class="py-3 px-3">#</th>
+                <th class="py-3 px-4">Police Station</th>
+                <th class="py-3 px-3">Sub-Division</th>
+                <th class="py-3 px-3 text-right">Total Cases</th>
+                <th class="py-3 px-3 text-right">UI Pending</th>
+                <th class="py-3 px-3 text-right">Charge-Sheeted</th>
+                <th class="py-3 px-3 text-right">Disposed</th>
+                <th class="py-3 px-3 text-right">Long Pending (>1y)</th>
+                <th class="py-3 px-3 text-right">CS Rate</th>
+                <th class="py-3 px-4 text-center">Efficiency Rating</th>
+              </tr>
+            </thead>
+            <tbody id="stationTableBody" class="divide-y divide-slate-800">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: CRIME HEAD ANALYTICS -->
+    <div id="tab-crimes" class="tab-pane hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Crime Heads Chart -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-chart-bar text-blue-400"></i> Top Crime Categories by Volume
+          </h3>
+          <div class="h-80">
+            <canvas id="crimeHeadsChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Crime Head CS Rate Comparison -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-percentage text-emerald-400"></i> Charge-Sheet Rate by Crime Head
+          </h3>
+          <div class="h-80">
+            <canvas id="crimeCsRateChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: PENDENCY & UI AGING -->
+    <div id="tab-pendency" class="tab-pane hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Pendency Aging Buckets -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-hourglass-start text-amber-400"></i> Under Investigation (UI) Aging Brackets
+          </h3>
+          <div class="h-80">
+            <canvas id="pendencyChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Reasons for UI Breakdown -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+          <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-list-check text-rose-400"></i> Top Documented Reasons for Pendency
+          </h3>
+          <div id="reasonsContainer" class="space-y-3 mt-4">
+            <!-- Rendered via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: LIVE CASE EXPLORER -->
+    <div id="tab-explorer" class="tab-pane hidden space-y-4">
+      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm">
+        <!-- Explorer Controls -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <div class="relative flex-1 max-w-md">
+            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
+              <i class="fa-solid fa-magnifying-glass"></i>
+            </span>
+            <input type="text" id="caseSearchInput" placeholder="Search by FIR No, Officer, Section, or Brief narrative..." class="w-full bg-slate-800 border border-slate-700 text-xs rounded-lg pl-9 pr-4 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-200">
+          </div>
+
+          <div class="flex items-center gap-3 text-xs text-slate-400">
+            <span>Showing <span id="caseRecordCount" class="font-bold text-white">0</span> cases</span>
+            <select id="pageSizeSelect" class="bg-slate-800 border border-slate-700 text-slate-200 rounded px-2 py-1">
+              <option value="25">25 per page</option>
+              <option value="50">50 per page</option>
+              <option value="100">100 per page</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="overflow-x-auto custom-scrollbar border border-slate-800 rounded-lg">
+          <table class="w-full text-xs text-left text-slate-300">
+            <thead class="bg-slate-800/80 text-slate-400 uppercase font-semibold border-b border-slate-700">
+              <tr>
+                <th class="py-3 px-3">FIR No</th>
+                <th class="py-3 px-3">Date</th>
+                <th class="py-3 px-3">Police Station</th>
+                <th class="py-3 px-3">Crime Head</th>
+                <th class="py-3 px-3">Acts & Sec</th>
+                <th class="py-3 px-3">Investigating Officer</th>
+                <th class="py-3 px-3">Stage</th>
+                <th class="py-3 px-3 text-right">Days Pending</th>
+                <th class="py-3 px-3 text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody id="caseTableBody" class="divide-y divide-slate-800">
+              <!-- Rendered via JS -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="flex items-center justify-between pt-4 text-xs text-slate-400">
+          <button id="prevPageBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            <i class="fa-solid fa-chevron-left mr-1"></i> Previous
+          </button>
+          <span>Page <span id="currentPageNum" class="font-bold text-white">1</span> of <span id="totalPagesNum" class="font-bold text-white">1</span></span>
+          <button id="nextPageBtn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed">
+            Next <i class="fa-solid fa-chevron-right ml-1"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- CASE DETAIL MODAL -->
+  <div id="caseModal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="px-6 py-4 bg-slate-800 border-b border-slate-700 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-file-shield"></i>
+          </div>
+          <div>
+            <h3 id="modalFirNo" class="text-base font-bold text-white">FIR NO: --</h3>
+            <p id="modalPsName" class="text-xs text-slate-400">Police Station: --</p>
+          </div>
+        </div>
+        <button id="closeModalBtn" class="text-slate-400 hover:text-white text-lg p-1.5 rounded-lg hover:bg-slate-700 transition">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-6 space-y-4 overflow-y-auto custom-scrollbar text-xs">
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
+          <div><span class="text-slate-500">Date of FIR:</span> <p id="modalFirDate" class="font-semibold text-slate-200">--</p></div>
+          <div><span class="text-slate-500">Investigating Officer:</span> <p id="modalIoName" class="font-semibold text-slate-200">--</p></div>
+          <div><span class="text-slate-500">Sub-Division:</span> <p id="modalSubDiv" class="font-semibold text-slate-200">--</p></div>
+          <div><span class="text-slate-500">Crime Head:</span> <p id="modalHead" class="font-semibold text-slate-200">--</p></div>
+          <div><span class="text-slate-500">Gravity:</span> <p id="modalGravity" class="font-semibold text-slate-200">--</p></div>
+          <div><span class="text-slate-500">Days Pending:</span> <p id="modalDays" class="font-semibold text-amber-400">--</p></div>
+        </div>
+
+        <div>
+          <span class="text-slate-400 font-semibold uppercase tracking-wider block mb-1">Acts & Sections</span>
+          <p id="modalActs" class="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700 text-slate-200 font-mono">--</p>
+        </div>
+
+        <div>
+          <span class="text-slate-400 font-semibold uppercase tracking-wider block mb-1">Investigation Stage & Reason</span>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
+              <span class="text-slate-500 block">Stage:</span>
+              <span id="modalStage" class="font-bold text-blue-400">--</span>
+            </div>
+            <div class="bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
+              <span class="text-slate-500 block">Reason for UI:</span>
+              <span id="modalReason" class="font-semibold text-amber-300">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <span class="text-slate-400 font-semibold uppercase tracking-wider block mb-1">Brief Incident / Case Narrative</span>
+          <p id="modalBrief" class="bg-slate-950 p-3.5 rounded-lg border border-slate-800 text-slate-300 leading-relaxed max-h-48 overflow-y-auto custom-scrollbar whitespace-pre-wrap">--</p>
+        </div>
+      </div>
+
+      <div class="px-6 py-3 bg-slate-800 border-t border-slate-700 flex justify-end">
+        <button id="modalOkBtn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg text-xs transition">Close Case</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="bg-slate-950 border-t border-slate-900 py-4 px-6 text-center text-xs text-slate-500 mt-auto">
+    District Police Crime Analysis Portal &bull; Built with FastAPI, SQLite & Open Data Standards
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
